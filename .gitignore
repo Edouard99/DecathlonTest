@@ -1,4 +1,10 @@
+__pycache__/
+*.py[cod]
+*$py.class
+
+
 *.tar
 *.pdf
 *.csv
 .vscode
+*.json
