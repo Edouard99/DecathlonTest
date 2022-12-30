@@ -2,6 +2,22 @@ import pandas as pd
 import numpy as np
 from torch.utils.data import Dataset
 import tqdm as tqdm
+import json
+import torch
+
+class NpEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        if isinstance(obj, np.floating):
+            return float(obj)
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        if isinstance(obj,type(pd.to_datetime('2022-01-01'))):
+            return str(obj)
+        return super(NpEncoder, self).default(obj)
+
+
 
 def sequence_is_complete(df:pd.DataFrame,day_id):
     """
@@ -43,6 +59,11 @@ def map_category_to_vector(all_cat_vector,category):
     x[i]=1
     return x
 
+def norm(x,mean,std):
+    if std==0:
+        std=1
+    return (x-mean)/std
+
 class Turnover_dataset(Dataset):
     """
     Generate a dataset of turnover and additional data.
@@ -70,8 +91,23 @@ class Turnover_dataset(Dataset):
         path_to_folder(str): path to the folder that contains both train.csv and bu_feat.csv
         eval(bool): boolean used to use the dataset in training/eval mode.
     """
-    def __init__(self, path_to_folder:str, eval:bool):
+    def __init__(self):
+        self.samples=[]
+        self.eval=False
+        self.dataframe=None
+        self.dataframe_bu=None
+        self.discard=[]
+        self.max_lat=None
+        self.min_lat=None
+        self.max_long=None
+        self.min_long=None
+        self.region_idr_cat=None
+        self.zod_idr_cat=None
+        self.dic={}
+    
+    def load_from_csv(self, path_to_folder:str):
         self.samples = []
+        self.samples_for_nn= []
         self.eval=eval
         self.dataframe=pd.read_csv(path_to_folder+"train.csv")
         self.dataframe_bu=pd.read_csv(path_to_folder+"bu_feat.csv")
@@ -80,10 +116,11 @@ class Turnover_dataset(Dataset):
         self.discard=[]
         self.max_lat=np.max(self.dataframe_bu["but_latitude"])
         self.min_lat=np.min(self.dataframe_bu["but_latitude"])
-        self.max_long=np.max(self.dataframe_bu["but_latitude"])
-        self.min_long=np.min(self.dataframe_bu["but_latitude"])
+        self.max_long=np.max(self.dataframe_bu["but_longitude"])
+        self.min_long=np.min(self.dataframe_bu["but_longitude"])
         self.region_idr_cat=np.sort(self.dataframe_bu["but_region_idr_region"].unique())
         self.zod_idr_cat=np.sort(self.dataframe_bu["zod_idr_zone_dgr"].unique())
+        self.dep_cat=np.sort(self.dataframe["dpt_num_department"].unique())
         bu_num_list=self.dataframe["but_num_business_unit"].unique()
         i=0
         self.dic={}
@@ -103,22 +140,32 @@ class Turnover_dataset(Dataset):
                         df_x=sequence.iloc[0:8]
                         df_y=sequence.iloc[8:16]
                         no_week=(day_id+pd.DateOffset(weeks=8)).isocalendar().week
+                        year=(day_id+pd.DateOffset(weeks=8)).isocalendar().year
+                        if year==2015:
+                            no_week=no_week/53
+                        else:
+                            no_week=no_week/52
                         bu_info=self.dataframe_bu[self.dataframe_bu["but_num_business_unit"]==bu].iloc[0]
                         region_idr=bu_info.but_region_idr_region
                         zod_idr=bu_info.zod_idr_zone_dgr
                         region_idr_enc=map_category_to_vector(self.region_idr_cat,region_idr).tolist()
                         zod_idr_enc=map_category_to_vector(self.zod_idr_cat,zod_idr).tolist()
+                        dep_enc=map_category_to_vector(self.dep_cat,dep).tolist()
                         lat=bu_info.but_latitude
                         lat=(lat-self.min_lat)/(self.max_lat-self.min_lat)
                         long=bu_info.but_longitude
                         long=(long-self.min_long)/(self.max_long-self.min_long)
-                        sequence_x=df_x["turnover"].to_numpy().tolist()
-                        sequence_y=df_y["turnover"].to_numpy().tolist()
+                        sequence_x=df_x["turnover"].to_numpy()
+                        mean_x=np.mean(sequence_x)
+                        std_x=np.std(sequence_x)
+                        sequence_x=norm(sequence_x,mean_x,std_x).tolist()
+                        sequence_y=df_y["turnover"].to_numpy()
+                        sequence_y=norm(sequence_y,mean_x,std_x).tolist()
                         temp_dic={
                             'seq_x':sequence_x,
                             'seq_y':sequence_y,
                             'bu_num':bu,
-                            'dep':dep,
+                            'dep_enc':dep_enc,
                             'day_id':day_id,
                             'no_week':no_week,
                             'region_idr_enc':region_idr_enc,
@@ -126,14 +173,40 @@ class Turnover_dataset(Dataset):
                             'lat':lat,
                             'long':long
                         }
-                        self.samples.append(temp_dic.copy() )
+                        self.samples.append(temp_dic.copy())
                         self.dic[i]=temp_dic.copy()
                         i+=1
                     else: # Data are not available
                         self.discard.append((bu,dep,day_id))
-                    day_id=day_id+pd.DateOffset(weeks=1) # Go to the next data available
-    
-    
+                    day_id=day_id+pd.DateOffset(weeks=1) # Go to the next data available 
+
+    def save_ds_to_json(self,file):
+        json.dump(self.dic, file,cls=NpEncoder)
+
+    def load_from_json(self,file):
+        self.dic=json.load(file)
+        for key in self.dic.keys():
+            self.samples.append(self.dic[key])
+
+    def set_data_for_training(self,free_sample_memory):
+        for sample in self.samples:
+            x=torch.tensor(sample["seq_x"])
+            y=torch.tensor(sample["seq_y"])
+            zod=torch.tensor(sample["zod_idr_enc"])
+            idr=torch.tensor(sample["region_idr_enc"])
+            dep=torch.tensor(sample["dep_enc"])
+            hidden=torch.tensor(np.array([sample["lat"],sample["long"],sample["no_week"]]))
+            temp_dic={
+                                'x':x,
+                                'y':y,
+                                'zod':zod,
+                                'idr':idr,
+                                'dep':dep,
+                                'hidden':hidden
+                            }
+            self.samples_for_nn.append(temp_dic.copy())
+        if free_sample_memory:
+            self.samples=[]
 
     def __len__(self):
         return len(self.samples)
