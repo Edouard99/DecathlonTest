@@ -1,8 +1,10 @@
 __pycache__/
 *.py[cod]
 *$py.class
-
-
+/project
+/test_data_scientist
+test.ipynb
+*.txt
 *.tar
 *.pdf
 *.csv
