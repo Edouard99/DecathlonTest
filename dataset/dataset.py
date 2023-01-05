@@ -5,6 +5,8 @@ import tqdm as tqdm
 import json
 import torch
 from numpy.lib.stride_tricks import sliding_window_view
+import scipy.optimize as op
+import sklearn.metrics
 
 class NpEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -74,15 +76,19 @@ def inversenorm(x,max,min):
     else:
         return(x*(max-min)+min)
 
+def correlation(a,y,y_t): 
+    return sklearn.metrics.mean_absolute_error((a*y).reshape(1,-1),y_t.reshape(1,-1))
+
 class Annual_construction_dataset(Dataset):
     def __init__(self):
         self.samples=[]
         self.dep=None
         self.samples_for_nn=[]
-        self.samples_dep_73=[]
-        self.samples_dep_88=[]
-        self.samples_dep_117=[]
-        self.samples_dep_127=[]
+        self.samples_per_dep={73:[],88:[],117:[],127:[]}
+        # self.samples_dep_73=[]
+        # self.samples_dep_88=[]
+        # self.samples_dep_117=[]
+        # self.samples_dep_127=[]
         self.discard=0
 
     def load_from_df(self, dataframe_turnover, data_frame_bu):
@@ -166,10 +172,7 @@ class Annual_construction_dataset(Dataset):
             self.samples.append(self.dic[key])
 
     def set_data_for_training(self,free_sample_memory):
-        self.samples_dep_117=[]
-        self.samples_dep_73=[]
-        self.samples_dep_127=[]
-        self.samples_dep_88=[]
+        self.samples_per_dep={73:[],88:[],117:[],127:[]}
         self.samples_for_nn=[]
         for id_s,sample in enumerate(self.samples):
             y=np.array(sample["data"])
@@ -181,40 +184,29 @@ class Annual_construction_dataset(Dataset):
                                 'id':id_s
                             }
             self.samples_for_nn.append(temp_dic.copy())
-            if dep==73:
-                self.samples_dep_73.append([y,x,id_s])
-            if dep==88:
-                self.samples_dep_88.append([y,x,id_s])
-            if dep==117:
-                self.samples_dep_117.append([y,x,id_s])
-            if dep==127:
-                self.samples_dep_127.append([y,x,id_s])
+            self.samples_per_dep[dep].append([y,x,id_s])
+            # if dep==73:
+            #     self.samples_per.append([y,x,id_s])
+            # if dep==88:
+            #     self.samples_dep_88.append([y,x,id_s])
+            # if dep==117:
+            #     self.samples_dep_117.append([y,x,id_s])
+            # if dep==127:
+            #     self.samples_dep_127.append([y,x,id_s])
         if free_sample_memory:
             self.samples=[]
 
 
     def __len__(self):
-        if self.dep==73:
-            return len(self.samples_dep_73)
-        elif self.dep==88:
-            return len(self.samples_dep_88)
-        elif self.dep==117:
-            return len(self.samples_dep_117)
-        elif self.dep==127:
-            return len(self.samples_dep_127)
+        if self.dep in [73,88,117,127]:
+            return len(self.samples_per_dep[self.dep])
         else:
             return len(self.samples_for_nn)
 
 
     def __getitem__(self, id):
-        if self.dep==73:
-            return self.samples_dep_73[id]
-        elif self.dep==88:
-            return self.samples_dep_88[id]
-        elif self.dep==117:
-            return self.samples_dep_117[id]
-        elif self.dep==127:
-            return self.samples_dep_127[id]
+        if self.dep in [73,88,117,127]:
+            return self.samples_per_dep[self.dep][id]
         else:
             return self.samples_for_nn[id]
 
@@ -248,10 +240,12 @@ class Turnover_dataset(Dataset):
         path_to_folder(str): path to the folder that contains both train.csv and bu_feat.csv
         eval(bool): boolean used to use the dataset in training/eval mode.
     """
-    def __init__(self):
+    def __init__(self,dic_knn):
         self.samples=[]
         self.samples_for_nn= []
+        self.samples_per_dep={73:[],88:[],117:[],127:[]}
         self.eval=False
+        self.dep=None
         self.dataframe=None
         self.dataframe_bu=None
         self.discard=[]
@@ -262,13 +256,9 @@ class Turnover_dataset(Dataset):
         self.region_idr_cat=None
         self.zod_idr_cat=None
         self.dic={}
-        self.samples_dep_73=[]
-        self.samples_dep_88=[]
-        self.samples_dep_117=[]
-        self.samples_dep_127=[]
+        self.dic_knn=dic_knn
     
     def load_from_df(self, dataframe_turnover, data_frame_bu):
-        
         self.eval=False
         self.dep=None
         self.dataframe=dataframe_turnover
@@ -291,72 +281,81 @@ class Turnover_dataset(Dataset):
             bu_info=self.dataframe_bu[self.dataframe_bu["but_num_business_unit"]==bu].iloc[0]
             region_idr=bu_info.but_region_idr_region
             zod_idr=bu_info.zod_idr_zone_dgr
-            region_idr_enc=map_category_to_vector(self.region_idr_cat,region_idr).tolist()
-            zod_idr_enc=map_category_to_vector(self.zod_idr_cat,zod_idr).tolist()
+            region_idr_enc=map_category_to_vector(self.region_idr_cat,region_idr)
+            zod_idr_enc=map_category_to_vector(self.zod_idr_cat,zod_idr)
             lat=bu_info.but_latitude
             lat=(lat-self.min_lat)/(self.max_lat-self.min_lat)
             long=bu_info.but_longitude
             long=(long-self.min_long)/(self.max_long-self.min_long)
             for dep in dep_list: # ITERATE ON ALL DEPARTMENT OF THE STORE
-
+                input_knn=np.concatenate([zod_idr_enc,region_idr_enc,np.array([lat,long])]).reshape(1,-1)
+                output_knn=self.dic_knn[dep].predict(input_knn).reshape(-1)
+                x_old=np.linspace(0,1,num=128)
+                x_53=np.linspace(0,1,num=53)
+                x_52=np.linspace(0,1,num=52)
+                y_53=np.interp(x_53,x_old,output_knn)
+                y_52=np.interp(x_52,x_old,output_knn)
                 temp_df=self.dataframe[(self.dataframe["but_num_business_unit"]==bu) &
                                 (self.dataframe["dpt_num_department"]==dep)]
+                max_turnover=np.max(temp_df["turnover"])
+                min_turnover=np.min(temp_df["turnover"])
                 day_id=np.min(temp_df["day_id"])
-                max_day_id=np.max(temp_df["day_id"])
-                dep_enc=map_category_to_vector(self.dep_cat,dep).tolist()
-                while day_id<max_day_id: # ITERATE ON ALL DATA AVAILABLE FOR THE DEPARTMENT AND STORE
-                    valid,sequence=sequence_is_complete(temp_df,day_id,23) # Checking that 16 weeks data are available from day_id date
-                    if valid: # Data are available
-                        no_week=(day_id).isocalendar().week
-                        year=(day_id).isocalendar().year
-                        if year==2015:
-                            no_week=no_week/53
+                max_day_id=np.max(temp_df["day_id"])-pd.DateOffset(weeks=23)
+                while day_id<=max_day_id: # ITERATE ON ALL DATA AVAILABLE FOR THE DEPARTMENT AND STORE
+                    end_seq=day_id+pd.DateOffset(weeks=23)
+                    sequence=temp_df[(temp_df["day_id"]>=day_id) & (temp_df["day_id"]<=end_seq)].sort_values(by=["day_id"]).reset_index()
+                    no_week_array=sequence["week"].to_numpy()
+                    year_array=sequence["year"].to_numpy()
+                    annual_slice=np.zeros(24)
+                    for pos,(w,y) in enumerate(zip(no_week_array,year_array)):
+                        if y==2015:
+                            no_week_array[pos]=x_53[w-1]
+                            annual_slice[pos]=y_53[w-1]
                         else:
-                            no_week=no_week/52
-                        raw_xy=sequence.iloc[0:24]["turnover"].to_numpy()
-                        raw_x=raw_xy[0:16]
-                        raw_y=raw_xy[16:24]
-                        diff_xy=np.diff(raw_xy)
-                        diff_x=diff_xy[0:15]
-                        diff_y=diff_xy[15:23]
-                        max_x=np.max(diff_x)
-                        min_x=np.min(diff_x)
-                        seq_x=norm(diff_x,max_x,min_x)
-                        seq_y=norm(diff_y,max_x,min_x)
-                        seq_x_slide=sliding_window_view(seq_x,5)
-                        
-                        temp_dic={
-                            'seq_x':seq_x,
-                            'raw_x':raw_x,
-                            'seq_y':seq_y,
-                            'raw_y':raw_y,
-                            'raw_xy':raw_xy,
-                            'seq_x_full':seq_x,
-                            'seq_y_full':seq_y,
-                            'seq_x_slide':seq_x_slide,
-                            'seq_y_one':seq_y[0],
-                            'first_turn':raw_xy[0],
-                            'max_x':max_x,
-                            'min_x':min_x,
-                            'bu_num':bu,
-                            'dep':dep,
-                            'dep_enc':dep_enc,
-                            'day_id':day_id,
-                            'no_week':no_week,
-                            'region_idr':region_idr,
-                            'zod_idr':zod_idr,
-                            'region_idr_enc':region_idr_enc,
-                            'zod_idr_enc':zod_idr_enc,
-                            'raw_lat':bu_info.but_latitude,
-                            'raw_long':bu_info.but_longitude,
-                            'lat':lat,
-                            'long':long
-                        }
-                        self.samples.append(temp_dic.copy())
-                        self.dic[i]=temp_dic.copy()
-                        i+=1
-                    else: # Data are not available
-                        self.discard.append((bu,dep,day_id))
+                            no_week_array[pos]=x_52[w-1]
+                            annual_slice[pos]=y_52[w-1]
+                    raw_xy=sequence.iloc[0:24]["turnover"].to_numpy()
+                    raw_x=raw_xy[0:16]
+                    raw_y=raw_xy[16:24]
+                    max_x=np.max(raw_x)
+                    min_x=np.min(raw_x)
+                    annual_slice_x=annual_slice[0:16]
+                    annual_slice_y=annual_slice[16:24]
+                    normed_raw_x=norm(raw_x,max_x,min_x)
+                    annual_slice_y=norm(annual_slice_y,np.max(annual_slice_x),np.min(annual_slice_x))
+                    annual_slice_x=norm(annual_slice_x,np.max(annual_slice_x),np.min(annual_slice_x))
+                    res = op.minimize_scalar(correlation,args=(annual_slice_x,normed_raw_x))
+                    scale_factor=res.x
+                    annual_slice_x=annual_slice_x*scale_factor
+                    annual_slice_y=annual_slice_y*scale_factor
+                    annual_slice_x=inversenorm(annual_slice_x,max_x,min_x)
+                    annual_slice_y=inversenorm(annual_slice_y,max_x,min_x)
+                    annual_slice_x=norm(annual_slice_x,max_turnover,min_turnover)
+                    annual_slice_y=norm(annual_slice_y,max_turnover,min_turnover)
+                    seq_x=norm(raw_x,max_turnover,min_turnover)
+                    seq_y=norm(raw_y,max_turnover,min_turnover)
+                    
+                    temp_dic={
+                        'seq_x':seq_x,
+                        'raw_x':raw_x,
+                        'seq_y':seq_y,
+                        'raw_y':raw_y,
+                        'raw_xy':raw_xy,
+                        'annual_slice_x':annual_slice_x,
+                        'annual_slice_y':annual_slice_y,
+                        'scale_factor':scale_factor,
+                        'max_turn':max_turnover,
+                        'min_turn':min_turnover,
+                        'bu_num':bu,
+                        'dep':dep,
+                        'day_id':day_id,
+                        'no_week':no_week_array,
+                        'year_array':year_array,
+                        'output_knn':output_knn
+                    }
+                    self.samples.append(temp_dic.copy())
+                    self.dic[i]=temp_dic.copy()
+                    i+=1
                     day_id=day_id+pd.DateOffset(weeks=1) # Go to the next data available 
 
     def save_ds_to_json(self,file):
@@ -368,68 +367,38 @@ class Turnover_dataset(Dataset):
             self.samples.append(self.dic[key])
 
     def set_data_for_training(self,free_sample_memory):
-        self.samples_dep_117=[]
-        self.samples_dep_73=[]
-        self.samples_dep_127=[]
-        self.samples_dep_88=[]
+        self.samples_per_dep={73:[],88:[],117:[],127:[]}
         self.samples_for_nn=[]
         for id_s,sample in enumerate(self.samples):
             x=torch.tensor(sample["seq_x"])
-            x_slide=torch.tensor(sample["seq_x_slide"])
             y=torch.tensor(sample["seq_y"])
-            y_one=torch.tensor(sample["seq_y_one"])
-            zod=torch.tensor(sample["zod_idr_enc"])
-            idr=torch.tensor(sample["region_idr_enc"])
-            dep=torch.tensor(sample["dep"])
-            dep_enc=torch.tensor(sample["dep_enc"])
-            add_input=torch.tensor(np.array([sample["lat"],sample["long"],sample["no_week"]]))
-            # mean_x=torch.tensor(sample["mean_x"])
-            # std_x=torch.tensor(sample["std_x"])
+            annual_x=torch.tensor(sample["annual_slice_x"])
+            annual_y=torch.tensor(sample["annual_slice_y"])
+            dep=sample["dep"]
             temp_dic={
                                 'x':x,
                                 'y':y,
-                                'x_slide':x_slide,
-                                'y_one':y_one,
-                                'zod':zod,
-                                'idr':idr,
+                                'annual_x':annual_x,
+                                'annual_y':annual_y,
                                 'dep':dep,
-                                'dep_enc':dep_enc,
-                                'add_input':add_input,
+                                'max_turn':sample["max_turn"],
+                                'min_turn':sample["min_turn"],
                                 'id':id_s
                             }
             self.samples_for_nn.append(temp_dic.copy())
-            if dep==73:
-                self.samples_dep_73.append(temp_dic.copy())
-            if dep==88:
-                self.samples_dep_88.append(temp_dic.copy())
-            if dep==117:
-                self.samples_dep_117.append(temp_dic.copy())
-            if dep==127:
-                self.samples_dep_127.append(temp_dic.copy())
+            self.samples_per_dep[dep].append(temp_dic.copy())
         if free_sample_memory:
             self.samples=[]
 
     def __len__(self):
-        if self.dep==73:
-            return len(self.samples_dep_73)
-        elif self.dep==88:
-            return len(self.samples_dep_88)
-        elif self.dep==117:
-            return len(self.samples_dep_117)
-        elif self.dep==127:
-            return len(self.samples_dep_127)
+        if self.dep in [73,88,117,127]:
+            return len(self.samples_per_dep[self.dep])
         else:
             return len(self.samples_for_nn)
 
 
     def __getitem__(self, id):
-        if self.dep==73:
-            return self.samples_dep_73[id]
-        elif self.dep==88:
-            return self.samples_dep_88[id]
-        elif self.dep==117:
-            return self.samples_dep_117[id]
-        elif self.dep==127:
-            return self.samples_dep_127[id]
+        if self.dep in [73,88,117,127]:
+            return self.samples_per_dep[self.dep][id]
         else:
             return self.samples_for_nn[id]

@@ -10,3 +10,4 @@ test.ipynb
 *.csv
 .vscode
 *.json
+model_build.ipynb

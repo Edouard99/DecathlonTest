@@ -3,7 +3,7 @@ import torch
 import numpy as np
 
 
-def training(num_epochs,net,optimizer,scheduler,dataloader_t,dataloader_v,device,path,checkpoint=None):
+def training(num_epochs,net,optimizer,scheduler,dataloader_t,dataloader_v,device,path,warmup:int=0,future_pred:int=1,checkpoint=None):
     if checkpoint!=None: #Load checpoint state
         starting_epoch=checkpoint["epoch"]+1
         net.load_state_dict(checkpoint['model_state_dict'])
@@ -24,11 +24,15 @@ def training(num_epochs,net,optimizer,scheduler,dataloader_t,dataloader_v,device
         net.train()
         for i, data in (enumerate(dataloader_t, 0)): #Training
             net.zero_grad()
-            future_pred=data["y"].shape[1]
-            y=net(data["x"].float().to(device),data["dep"].float().to(device),data["idr"].float().to(device),
-                data["zod"].float().to(device),data["add_input"].float().to(device),future_pred)
-            y=y[:,-future_pred:]
-            gt=data["y"].float().to(device)
+            y=net( data["x"].float().to(device),
+                    data["annual_x"].float().to(device),
+                    data["annual_y"].float().to(device),
+                    future_pred)
+            y=y[:,-(future_pred+warmup):]
+            if warmup!=0:
+                gt=torch.cat((data["x"][:,-warmup:].float().to(device),data["y"][:,0:future_pred].float().to(device)),dim=1)
+            else:
+                gt=data["y"][:,0:future_pred].float().to(device)
             loss=torch.nn.L1Loss()(y,gt)
             loss.backward()
             optimizer.step()
@@ -37,20 +41,28 @@ def training(num_epochs,net,optimizer,scheduler,dataloader_t,dataloader_v,device
         net.eval()
 
         for i, data in enumerate(dataloader_t, 0): #Evaluation on training set
-            future_pred=data["y"].shape[1]
-            y=net(data["x"].float().to(device),data["dep"].float().to(device),data["idr"].float().to(device),
-                data["zod"].float().to(device),data["add_input"].float().to(device),future_pred)
-            y=y[:,-future_pred:]
-            gt=data["y"].float().to(device)
+            y=net( data["x"].float().to(device),
+                    data["annual_x"].float().to(device),
+                    data["annual_y"].float().to(device),
+                    future_pred)
+            y=y[:,-(future_pred+warmup):]
+            if warmup!=0:
+                gt=torch.cat((data["x"][:,-warmup:].float().to(device),data["y"][:,0:future_pred].float().to(device)),dim=1)
+            else:
+                gt=data["y"][:,0:future_pred].float().to(device)
             loss=torch.nn.L1Loss()(y,gt)
             L_t_e.append(loss.item()) #Loss of this batch evaluation
 
         for i, data in enumerate(dataloader_v, 0): #Evaluation on training set
-            future_pred=data["y"].shape[1]
-            y=net(data["x"].float().to(device),data["dep"].float().to(device),data["idr"].float().to(device),
-                data["zod"].float().to(device),data["add_input"].float().to(device),future_pred)
-            y=y[:,-future_pred:]
-            gt=data["y"].float().to(device)
+            y=net( data["x"].float().to(device),
+                    data["annual_x"].float().to(device),
+                    data["annual_y"].float().to(device),
+                    future_pred)
+            y=y[:,-(future_pred+warmup):]
+            if warmup!=0:
+                gt=torch.cat((data["x"][:,-warmup:].float().to(device),data["y"][:,0:future_pred].float().to(device)),dim=1)
+            else:
+                gt=data["y"][:,0:future_pred].float().to(device)
             loss=torch.nn.L1Loss()(y,gt)
             L_v_e.append(loss.item()) #Loss of this batch evaluation
 
