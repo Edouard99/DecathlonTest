@@ -7,6 +7,36 @@ import numpy as np
 from sklearn.neighbors import KNeighborsRegressor
 
 class PredSet():
+    """
+    Prediction set used for prediction.
+    The minimum date of prediction is the minimum date in pred_df.
+
+    Attributes:
+        -past_df: a dataframe containing columns : ["day_id],["but_num_business_unit"],
+            ["dpt_num_department"],["turnover"]. This dataframe must contains at least 16weeks
+            of data before the minimum date of prediction (from minimumdate-16weeks to minimumdate-1weeks) for all business 
+            unit and department id in pred_df.
+        -pred_df: a dataframe containing columns : ["day_id],["but_num_business_unit"],
+            ["dpt_num_department"]. This dataframe must contains 7 weeks of data after minimum prediction date (from minimumdate
+            to minimumdate+7weeks) for all business unit and department id for which the prediction will be done.
+        -bu_feat_df: a dataframe containing columns : ["but_num_business_unit"],["but_latitude"],
+            ["but_longitude"],["but_region_idr_region"],["zod_idr_zone_dgr"], it must contains data for all business 
+            unit and department id in pred_df.
+        -data_knn(dataset.Annual_construction_dataset): a dataset that is loaded from data_knn.json file, that contains data
+            to fit the k nearest neighbors models.
+        -initialized(bool): True if the predset has been initialized with initialize()
+        -params(dic): params used for normalization and one-hot encoding to build TestDataset.
+        -opt(utils.options.BaseOptions): Namespace that contains options
+        -knn_params(dic): knn hyperparameters per department.
+        -dic_knn(dic): a dictionnary that contains fitted k nearest neighbors models for each department
+        -dataset_to_nn(dataset.testdataset.TestDataset): dataset that contains the data preprocessed to feed the neural network model.
+        -results_df: a dataframe containing columns : ["day_id],["but_num_business_unit"],
+            ["dpt_num_department"],["results"]. The ["results"] contains the predictions of the network.
+    Methods:
+        initialize : load the dataframes, fit the nearest neighbors models and build a dataset that contains preprocessed data to
+            feed the neural network for prediction.
+        write_prediction : write the predictions of the network to a dataframe and a csv.
+    """
     def __init__(self):
         self.past_df=None
         self.pred_df=None
@@ -25,6 +55,12 @@ class PredSet():
                         "zod_idr_cat":np.array([1,3,4,6,10,35,59,72])
                     }
     def initialize(self,opt:options.BaseOptions):
+        """
+        Loads the dataframes, fit the nearest neighbors models and build a dataset that contains preprocessed data to
+        feed the neural network for prediction.
+        Args:
+            -opt : a Namespace containing dataroot.
+        """
         self.opt=opt
         self.past_df=pd.read_csv(os.path.join(opt.dataroot,'past_data.csv'))
         self.pred_df=pd.read_csv(os.path.join(opt.dataroot,'prediction_data.csv'))
@@ -64,6 +100,9 @@ class PredSet():
         self.initialized=True
     
     def write_prediction(self):
+        """
+        Writes the predictions of the network to a results_df and to dataroot/results.csv.
+        """
         self.results_df=self.pred_df.copy()
         for sample in self.dataset_to_nn.samples:
             bu=sample["bu_num"]

@@ -4,6 +4,14 @@ import sklearn
 import pandas as pd
 
 def custom_distance(x,y,w):
+    """
+    Custom distance calculation between x and y, the categories distances are weighted.
+    Using L2 loss
+    Args:
+        -x: array to compare (size 39)
+        -y: array to compare (size 39)
+        -w: weights array (size 3)
+    """
     cat1_x=x[0:8]
     cat2_x=x[8:29+8]
     cat3_x=x[29+8:]
@@ -16,6 +24,12 @@ def custom_distance(x,y,w):
     return cat1_d+cat2_d+cat3_d+w[2]
 
 def find_bis_year(years):
+    """
+    Checks which years contains 53 weeks
+    Returns a list containing years with 53 weeks 
+    Args:
+        -years: arrray containing the years to check
+    """
     bis_year=[]
     for year in np.unique(years):
         cond=False
@@ -41,19 +55,31 @@ def map_category_to_vector(all_cat_vector,category):
     return x
 
 def norm(x,max,min):
+    """
+    min-max norm
+    """
     if max==min:
         return(x-min)
     else:
         return(x-min)/(max-min)
 
 def inversenorm(x,max,min):
+    """
+    inverse of min-max norm
+    """
     if max==min:
         return(x+min)
     else:
         return(x*(max-min)+min)
 
 def inverse_diff(first,diff):
+    """
+    inverse np.diff
+    """
     return np.concatenate(([first], diff)).cumsum()
 
 def correlation(a,y,y_t): 
+    """
+    calculate l1 distance between a*y and y_t
+    """
     return sklearn.metrics.mean_absolute_error((a*y).reshape(1,-1),y_t.reshape(1,-1))

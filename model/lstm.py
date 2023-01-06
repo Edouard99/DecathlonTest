@@ -2,7 +2,20 @@ import torch
 import torch.nn as nn
 
 class LSTM_Turnover(nn.Module):
-    def __init__(self, init_weights:bool, hidden_size:int=48, num_of_layer:int=2):
+    """
+    LSTM model that predicts from 1 to 8 weeks next turnovers given a timeserie of last 16 weeks, a timeserie of last 
+    16 weeks portion of average annual turnover, a timeserie of next 8 weeks portion of average annual turnover.
+    The model can use multiple lstm layer and can be initialized with xavier init.
+    If the goal is to predict turnovers from week W to week W+future_pred-1 using W-16 to W-1 data and average annual turnover from W-16 to W+7:
+        The output y is a timeserie representing predicted turnover from week W-15 to W+future_pred-1, that is to say that the prediction 
+        is y[:,-future_pred:].
+        The output is a normalized output (as the input).
+    Args:
+        -init_weights(bool): if True the weights will be initialized with xavier init.
+        -hidden_size(int): size of the hidden state in LSTM cells
+        -num_of_layer(int): number of lstm layers
+    """
+    def __init__(self, init_weights:bool, hidden_size:int=64, num_of_layer:int=4):
         super(LSTM_Turnover, self).__init__()
         self.hidden_size=hidden_size
         
@@ -24,6 +37,15 @@ class LSTM_Turnover(nn.Module):
 
 
     def forward(self,x: torch.Tensor,annual_x: torch.Tensor, annual_y: torch.Tensor,future_pred: int):
+        """
+        Make a prediction
+
+        Args:
+            -x(torch.Tensor): normalized turnover timeserie of shape (Batchsize,16)
+            -annual_x(torch.Tensor): normalized average annual turnover timeserie of shape (Batchsize,16)
+            -annual_y(torch.Tensor): normalized average annual turnover timeserie of shape (Batchsize,8)
+            -future_pred(int): make a prediction from week W to week W+future_pred-1
+        """
         device=x.device
         bactch_size=x.shape[0]
         outputs=[]
@@ -55,6 +77,10 @@ class LSTM_Turnover(nn.Module):
 
 
 class LSTM_Turnoverv0(nn.Module):
+    """
+    Old model not using annual average turnover
+    
+    """
     def __init__(self, init_weights:bool, hidden_size:int=48, num_of_layer:int=2):
         super(LSTM_Turnoverv0, self).__init__()
         self.hidden_size=hidden_size
