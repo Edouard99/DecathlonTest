@@ -24,7 +24,7 @@ class LSTM_Turnover(nn.Module):
 
 
     def forward(self,x: torch.Tensor,annual_x: torch.Tensor, annual_y: torch.Tensor,future_pred: int):
-        device=x.get_device()
+        device=x.device
         bactch_size=x.shape[0]
         outputs=[]
         h_t_list=[torch.zeros(bactch_size,self.hidden_size,dtype=torch.float32).to(device) for module in self.lstm_cells]

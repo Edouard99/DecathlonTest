@@ -45,11 +45,8 @@ def training(num_epochs,net,optimizer,scheduler,dataloader_t,dataloader_v,device
                     data["annual_x"].float().to(device),
                     data["annual_y"].float().to(device),
                     future_pred)
-            y=y[:,-(future_pred+warmup):]
-            if warmup!=0:
-                gt=torch.cat((data["x"][:,-warmup:].float().to(device),data["y"][:,0:future_pred].float().to(device)),dim=1)
-            else:
-                gt=data["y"][:,0:future_pred].float().to(device)
+            y=y[:,-(future_pred):]
+            gt=data["y"][:,0:future_pred].float().to(device)
             loss=torch.nn.L1Loss()(y,gt)
             L_t_e.append(loss.item()) #Loss of this batch evaluation
 
@@ -58,11 +55,8 @@ def training(num_epochs,net,optimizer,scheduler,dataloader_t,dataloader_v,device
                     data["annual_x"].float().to(device),
                     data["annual_y"].float().to(device),
                     future_pred)
-            y=y[:,-(future_pred+warmup):]
-            if warmup!=0:
-                gt=torch.cat((data["x"][:,-warmup:].float().to(device),data["y"][:,0:future_pred].float().to(device)),dim=1)
-            else:
-                gt=data["y"][:,0:future_pred].float().to(device)
+            y=y[:,-(future_pred):]
+            gt=data["y"][:,0:future_pred].float().to(device)
             loss=torch.nn.L1Loss()(y,gt)
             L_v_e.append(loss.item()) #Loss of this batch evaluation
 

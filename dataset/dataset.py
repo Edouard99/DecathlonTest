@@ -6,7 +6,7 @@ import json
 import torch
 from numpy.lib.stride_tricks import sliding_window_view
 import scipy.optimize as op
-import sklearn.metrics
+from utils import utils
 
 class NpEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -19,10 +19,6 @@ class NpEncoder(json.JSONEncoder):
         if isinstance(obj,type(pd.to_datetime('2022-01-01'))):
             return str(obj)
         return super(NpEncoder, self).default(obj)
-
-
-def inverse_diff(first,diff):
-    return np.concatenate(([first], diff)).cumsum()
 
 def sequence_is_complete(df:pd.DataFrame,day_id,number_of_weeks):
     """
@@ -49,35 +45,38 @@ def sequence_is_complete(df:pd.DataFrame,day_id,number_of_weeks):
         valid=False
     return valid,sequence
 
-def map_category_to_vector(all_cat_vector,category):
-    """
-    This functions performs One-Hot Encoding, that is to say it takes a category C as input and 
-    returns a vector filled with 0 except at the spot where the category C is in the vector all_cat_vector.
-    ex : all_cat_vector=[CAT1,CAT2,CAT3,CAT4] and category = CAT 3, the output will be [0,0,1,0].
-    Args:
-        all_cat_vector(np.array or pd.Series): The vector containing all the category that will be used
-        for mapping.
-        category: An element of all_cat_vector to be mapped.
-    """
-    x=np.zeros_like(all_cat_vector)
-    i=np.where(all_cat_vector==category)
-    x[i]=1
-    return x
+# def map_category_to_vector(all_cat_vector,category):
+#     """
+#     This functions performs One-Hot Encoding, that is to say it takes a category C as input and 
+#     returns a vector filled with 0 except at the spot where the category C is in the vector all_cat_vector.
+#     ex : all_cat_vector=[CAT1,CAT2,CAT3,CAT4] and category = CAT 3, the output will be [0,0,1,0].
+#     Args:
+#         all_cat_vector(np.array or pd.Series): The vector containing all the category that will be used
+#         for mapping.
+#         category: An element of all_cat_vector to be mapped.
+#     """
+#     x=np.zeros_like(all_cat_vector)
+#     i=np.where(all_cat_vector==category)
+#     x[i]=1
+#     return x
 
-def norm(x,max,min):
-    if max==min:
-        return(x-min)
-    else:
-        return(x-min)/(max-min)
+# def norm(x,max,min):
+#     if max==min:
+#         return(x-min)
+#     else:
+#         return(x-min)/(max-min)
 
-def inversenorm(x,max,min):
-    if max==min:
-        return(x+min)
-    else:
-        return(x*(max-min)+min)
+# def inversenorm(x,max,min):
+#     if max==min:
+#         return(x+min)
+#     else:
+#         return(x*(max-min)+min)
 
-def correlation(a,y,y_t): 
-    return sklearn.metrics.mean_absolute_error((a*y).reshape(1,-1),y_t.reshape(1,-1))
+# def inverse_diff(first,diff):
+#     return np.concatenate(([first], diff)).cumsum()
+
+# def correlation(a,y,y_t): 
+#     return sklearn.metrics.mean_absolute_error((a*y).reshape(1,-1),y_t.reshape(1,-1))
 
 class Annual_construction_dataset(Dataset):
     def __init__(self):
@@ -85,10 +84,6 @@ class Annual_construction_dataset(Dataset):
         self.dep=None
         self.samples_for_nn=[]
         self.samples_per_dep={73:[],88:[],117:[],127:[]}
-        # self.samples_dep_73=[]
-        # self.samples_dep_88=[]
-        # self.samples_dep_117=[]
-        # self.samples_dep_127=[]
         self.discard=0
 
     def load_from_df(self, dataframe_turnover, data_frame_bu):
@@ -114,12 +109,12 @@ class Annual_construction_dataset(Dataset):
             bu_info=self.dataframe_bu[self.dataframe_bu["but_num_business_unit"]==bu].iloc[0]
             region_idr=bu_info.but_region_idr_region
             zod_idr=bu_info.zod_idr_zone_dgr
-            region_idr_enc=map_category_to_vector(self.region_idr_cat,region_idr).tolist()
-            zod_idr_enc=map_category_to_vector(self.zod_idr_cat,zod_idr).tolist()
+            region_idr_enc=utils.map_category_to_vector(self.region_idr_cat,region_idr).tolist()
+            zod_idr_enc=utils.map_category_to_vector(self.zod_idr_cat,zod_idr).tolist()
             lat=bu_info.but_latitude
-            lat=(lat-self.min_lat)/(self.max_lat-self.min_lat)
+            lat=utils.norm(lat,self.max_lat,self.min_lat)
             long=bu_info.but_longitude
-            long=(long-self.min_long)/(self.max_long-self.min_long)
+            long=utils.norm(long,self.max_long,self.min_long)
             for dep in dep_list: # ITERATE ON ALL DEPARTMENT OF THE STORE
                 temp=self.dataframe[(self.dataframe["but_num_business_unit"]==bu) & (self.dataframe["dpt_num_department"]==dep)]
                 years=temp["year"].unique()
@@ -134,7 +129,7 @@ class Annual_construction_dataset(Dataset):
                     last_week_of_year=temp_year.tail(1)["week"].item()
                     if ((first_week_of_year==1) & (last_week_of_year==final_week)):
                         turnover_data=temp_year["turnover"].to_numpy()
-                        turnover_data_norm=norm(turnover_data,np.max(turnover_data),np.min(turnover_data))
+                        turnover_data_norm=utils.norm(turnover_data,np.max(turnover_data),np.min(turnover_data))
                         y_old=np.array(turnover_data_norm)
                         x_old=np.linspace(1,len(y_old),num=len(y_old))
                         x=np.linspace(1,len(y_old),num=128)
@@ -185,14 +180,6 @@ class Annual_construction_dataset(Dataset):
                             }
             self.samples_for_nn.append(temp_dic.copy())
             self.samples_per_dep[dep].append([y,x,id_s])
-            # if dep==73:
-            #     self.samples_per.append([y,x,id_s])
-            # if dep==88:
-            #     self.samples_dep_88.append([y,x,id_s])
-            # if dep==117:
-            #     self.samples_dep_117.append([y,x,id_s])
-            # if dep==127:
-            #     self.samples_dep_127.append([y,x,id_s])
         if free_sample_memory:
             self.samples=[]
 
@@ -281,12 +268,12 @@ class Turnover_dataset(Dataset):
             bu_info=self.dataframe_bu[self.dataframe_bu["but_num_business_unit"]==bu].iloc[0]
             region_idr=bu_info.but_region_idr_region
             zod_idr=bu_info.zod_idr_zone_dgr
-            region_idr_enc=map_category_to_vector(self.region_idr_cat,region_idr)
-            zod_idr_enc=map_category_to_vector(self.zod_idr_cat,zod_idr)
+            region_idr_enc=utils.map_category_to_vector(self.region_idr_cat,region_idr)
+            zod_idr_enc=utils.map_category_to_vector(self.zod_idr_cat,zod_idr)
             lat=bu_info.but_latitude
-            lat=(lat-self.min_lat)/(self.max_lat-self.min_lat)
+            lat=utils.norm(lat,self.max_lat,self.min_lat)
             long=bu_info.but_longitude
-            long=(long-self.min_long)/(self.max_long-self.min_long)
+            long=utils.norm(long,self.max_long,self.min_long)
             for dep in dep_list: # ITERATE ON ALL DEPARTMENT OF THE STORE
                 input_knn=np.concatenate([zod_idr_enc,region_idr_enc,np.array([lat,long])]).reshape(1,-1)
                 output_knn=self.dic_knn[dep].predict(input_knn).reshape(-1)
@@ -321,19 +308,19 @@ class Turnover_dataset(Dataset):
                     min_x=np.min(raw_x)
                     annual_slice_x=annual_slice[0:16]
                     annual_slice_y=annual_slice[16:24]
-                    normed_raw_x=norm(raw_x,max_x,min_x)
-                    annual_slice_y=norm(annual_slice_y,np.max(annual_slice_x),np.min(annual_slice_x))
-                    annual_slice_x=norm(annual_slice_x,np.max(annual_slice_x),np.min(annual_slice_x))
-                    res = op.minimize_scalar(correlation,args=(annual_slice_x,normed_raw_x))
+                    normed_raw_x=utils.norm(raw_x,max_x,min_x)
+                    annual_slice_y=utils.norm(annual_slice_y,np.max(annual_slice_x),np.min(annual_slice_x))
+                    annual_slice_x=utils.norm(annual_slice_x,np.max(annual_slice_x),np.min(annual_slice_x))
+                    res = op.minimize_scalar(utils.correlation,args=(annual_slice_x,normed_raw_x))
                     scale_factor=res.x
                     annual_slice_x=annual_slice_x*scale_factor
                     annual_slice_y=annual_slice_y*scale_factor
-                    annual_slice_x=inversenorm(annual_slice_x,max_x,min_x)
-                    annual_slice_y=inversenorm(annual_slice_y,max_x,min_x)
-                    annual_slice_x=norm(annual_slice_x,max_turnover,min_turnover)
-                    annual_slice_y=norm(annual_slice_y,max_turnover,min_turnover)
-                    seq_x=norm(raw_x,max_turnover,min_turnover)
-                    seq_y=norm(raw_y,max_turnover,min_turnover)
+                    annual_slice_x=utils.inversenorm(annual_slice_x,max_x,min_x)
+                    annual_slice_y=utils.inversenorm(annual_slice_y,max_x,min_x)
+                    annual_slice_x=utils.norm(annual_slice_x,max_turnover,min_turnover)
+                    annual_slice_y=utils.norm(annual_slice_y,max_turnover,min_turnover)
+                    seq_x=utils.norm(raw_x,max_turnover,min_turnover)
+                    seq_y=utils.norm(raw_y,max_turnover,min_turnover)
                     
                     temp_dic={
                         'seq_x':seq_x,
