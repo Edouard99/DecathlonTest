@@ -1,2 +1,0 @@
-# DecathlonTest
-Decathlon test
