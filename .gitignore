@@ -11,3 +11,5 @@ test.ipynb
 .vscode
 *.json
 model_build.ipynb
+data_analysis.ipynb
+data_visu.ipynb

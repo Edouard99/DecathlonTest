@@ -74,5 +74,5 @@ class PredSet():
                 self.results_df.loc[(self.results_df["but_num_business_unit"]==bu)
                                         & (self.results_df["dpt_num_department"]==dep)
                                         & (self.results_df["day_id"]==days[i]),"results"]=sample["pred"][i]
-        self.results_df.to_csv(os.path.join(self.opt.dataroot,'results.csv'))
+        self.results_df.to_csv(os.path.join(self.opt.dataroot,'results.csv'),index=False)
         print("You will find your results here {}".format(os.path.join(self.opt.dataroot,'results.csv')))
