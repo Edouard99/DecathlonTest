@@ -177,7 +177,7 @@ The output of the LSTM will be un-normed by the maximum and minimum turnovers ev
 
 The k-nearest neighbor models is based on a custom weighted distance function that compares distance between features vector :
 
-$$ D(X,Y,w)=(X_{lat,long}-Y_{lat,long})^{2}+w_{0}*(X_{zodencoded}-Y_{zodencoded})^{2}+w_{1}*(X_{idrencoded}-Y_{idrencoded})^{2}+w_{3}$$
+$$ D(X,Y,w)=(X_{lat,long}-Y_{lat,long})^{2}+w_{0} * (X_{zodencoded}-Y_{zodencoded})^{2}+w_{1} * (X_{idrencoded}-Y_{idrencoded})^{2}+w_{3}$$
 
 ## Datasets
 To train this model multiple datasets has been computed.
