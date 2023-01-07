@@ -5,6 +5,8 @@ from dataset import dataset
 from dataset import testdataset
 import numpy as np
 from sklearn.neighbors import KNeighborsRegressor
+import matplotlib.pyplot as plt
+import torch
 
 class PredSet():
     """
@@ -54,7 +56,7 @@ class PredSet():
                                                     107,115,121,134,162,178]),
                         "zod_idr_cat":np.array([1,3,4,6,10,35,59,72])
                     }
-    def initialize(self,opt:options.BaseOptions):
+    def initialize(self,opt):
         """
         Loads the dataframes, fit the nearest neighbors models and build a dataset that contains preprocessed data to
         feed the neural network for prediction.
@@ -107,11 +109,19 @@ class PredSet():
         for sample in self.dataset_to_nn.samples:
             bu=sample["bu_num"]
             dep=sample["dep"]
+            if (bu==self.opt.bu and dep==self.opt.dep and self.opt.plot==1):
+                fig=plt.figure(figsize=(10,5))
+                plt.plot(np.concatenate([sample["x"],sample["pred"]]),label="Prediction",color="red")
+                plt.plot(sample["x"],label="Turnover until now",color="blue")
+                plt.plot(utils.inversenorm(np.concatenate([sample["annual_x"].numpy(),sample["annual_y"].numpy()]),sample["max_turn"],sample["min_turn"]),color="green",label="Annual Average")
+                plt.title("Turnover Prediction")
+                plt.legend()
+                plt.show()
             temp_df=self.results_df[(self.results_df["but_num_business_unit"]==bu) & (self.results_df["dpt_num_department"]==dep)].sort_values(by=["day_id"])
             days=temp_df["day_id"].to_numpy()
             for i in range(len(sample["pred"])):
                 self.results_df.loc[(self.results_df["but_num_business_unit"]==bu)
                                         & (self.results_df["dpt_num_department"]==dep)
-                                        & (self.results_df["day_id"]==days[i]),"results"]=sample["pred"][i]
+                                        & (self.results_df["day_id"]==days[i]),"turnover"]=sample["pred"][i]
         self.results_df.to_csv(os.path.join(self.opt.dataroot,'results.csv'),index=False)
         print("You will find your results here {}".format(os.path.join(self.opt.dataroot,'results.csv')))

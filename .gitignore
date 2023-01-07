@@ -13,3 +13,5 @@ test.ipynb
 model_build.ipynb
 data_visu.ipynb
 *.pth
+*.pptx
+model_eval

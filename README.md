@@ -1,196 +1,261 @@
 ## Table Of Contents
-- [Introduction](#introduction)
-- [1. Data Analysis](#data-analysis)
-    -[a. Removing an outlier](#removing-an-outlier)
-    -[b. Highest turnover in 2016](#highest-turnover-in-2016)
-  -[c. Top 5 weeks for department 88 in 2015](#top-5-weeks-for-department-88-in-2015)
-  -[d. Top performer store of 2014](#top-performer-store-in-2014)
-  -[e. What kind of sport is department 73](#what-kind-of-sport-is-department-73)
-  -[f. What kind of sport is department 117](#what-kind-of-sport-is-department-117)
-  -[g. A representation of business unit features](#a-representation-of-business-unit-features)
-  -[h. An overall vue on data](#an-overall-vue-on-data)
-- [2. Modeling](#modeling)
-  -[a. Firsts models](#firsts-models)
-  -[b. Final model](#final-model)
-- [3. Datasets](#datasets)
-- [4. Final model architecture](#final-model-architecture)
-- [5. Results](#results)
-- [6. Pipeline](#pipeline)
-- [7. Using pipeline](#using-pipeline)
-- [8. Conclusion](#conclusion)
-- [References](#references)
+* [Introduction](#introduction)
+* [Structure of repository](#structure-of-repository)
+* [1. Data Analysis](#data-analysis)
+  * [a. Removing an outlier](#removing-an-outlier)
+  * [b. Highest turnover in 2016](#highest-turnover-in-2016)
+  * [c. Top 5 weeks for department 88 in 2015](#top-5-weeks-for-department-88-in-2015)
+  * [d. Top performers stores of 2014](#top-performers-stores-in-2014)
+  * [e. What kind of sport is department 73](#what-kind-of-sport-is-department-73)
+  * [f. What kind of sport is department 117](#what-kind-of-sport-is-department-117)
+  * [g. A representation of business unit features](#a-representation-of-business-unit-features)
+  * [h. An overall vue on data](#an-overall-vue-on-data)
+* [2. Modeling](#modeling)
+  * [a. Firsts models](#firsts-models)
+  * [b. Final model](#final-model)
+* [3. Datasets](#datasets)
+* [5. Training and Results](#results)
+  * [KNN](#knn)
+  * [LSTM Module](#lstm-module)
+* [6. Pipeline](#pipeline)
+* [7. Using the pipeline](#using-the-pipeline)
+* [8. Improve the model ?](#improve-the-model)
 
 ## Introduction
 
 This project aims at developing a machine learning model able to predict from 1 to 8 next weeks turnovers for a given store and department.
 
+The prediction on the test set can be found in file data/results.csv, it is on the same format as train.csv
+
+## Structure of repository
+
+* data folder contains the data used to make a prediction
+* dataset folder contains files related to dataset class
+* media folder contains all media (pictures) related to the project
+* model folder contains the models weights for prediction, the model implementation (curvegen.py is not used in the project for now)
+* training contains all the files containing functions used for training
+* utils contains files with small but usefull functions
+* annual_curve_model_training.ipynb is the file used to train the knn models
+* data_analysis.ipynb is the file used for data analysis (and to answer the questions)
+* dataset_building.ipynb is the file used for dataset creation
+* make_prediction.py is the file used to make prediction on data folded files
+* model_evaluation.ipynb is a file used to make some plot and evaluate the model.
+* model_training.ipynb is the file used to train the lstm model.
+* prediction_visu.ipynb is a file used to check that the pipeline is working properly.
+
 ## Data Analysis
 
-## Try my models
+All the data analysis made in this part has been done using <a href="data_analysis.ipynb" target="_blank">data_analysis.ipynb</a> notebook.
 
-Check and try the <a href="Train.ipynb" target="_blank">Notebook</a> that I used to train my models : <a href="https://colab.research.google.com/github/Edouard99/GAN/blob/main/Train.ipynb" target="_blank">here on Google Colaboratory</a>
+### Removing an outlier
 
-## Dataset
-
-In this project I have used different datasets :
-* A pokemon dataset (with data augmentation in 64px) that you can find <a href="https://drive.google.com/file/d/1mKWPRvdYg6jfN6G8AFxsHpzjo3608QaJ/view">here</a>.
-* A pokemon dataset (with data augmentation in 256px) that you can find <a href="https://drive.google.com/file/d/19sQKN9H4gmNPxQLLtjDmw5SV5KZ4Q1n1/view">here</a>.
-
-## Special Gan Features 
-
-###  Mini Batch Discrimination
-
-The following networks are mostly convolutional and deconvolutional networks. Yet it is known that GANs are based on complex equilibrium and that they can quickly become unstable and go into collapse mode :
-<p align="center">
-  <img alt="Collapse Mode" title="Collapse Mode" src="./Media/collapse.PNG" >
-</p>
-In both DCGAN and WGAN models a Mini Batch Discrimination Layer is implemented in the Discriminant. This layer prevents the Generator to produce the same image for multiple inputs. For more informations see <a href="https://towardsdatascience.com/gan-ways-to-improve-gan-performance-acf37f9f59b">this link</a>.
-
-### Label Smoothing
-
-To avoid overconfidence for the Discriminant in the DCGAN model a BCE with label smoothing is used. See the custom function in <a href="./Trainings/basic_functions.py">basic_functions.py</a>.
-
-### Noisy Labels
-
-Once again to avoid overconfidence in the Discriminant, in one of the trainings of the DCGAN model, the labels are swapped between real images and fake, see in <a href="./Trainings/training_boosting.py">training_boosting.py</a>.
-
-## DC-GAN 
-
-
-### DC-GAN Architecture
-
-A Deep Convolutional GAN (DC-GAN) is developed for (64px and 256px) using <a href="./Models/gan_64.py">gan_64.py</a> and <a href="./Models/gan_256.py">gan_256.py</a> with the mode "dcgan".
-The architecture of the GAN is given by the following figures :
+During the analysis of data, I figured out that in 2013 for department 88 the annual turnover was significantly higher than the other years. I plotted the turnover in function of time in 2013 :
 
 <p align="center">
-  <img alt="Generator DCGAN" title="Generator DCGAN" src="./Media/Generator.PNG" >
-</p>
-<p align="center">
-  <img alt="Discriminant DCGAN" title="Discriminant DCGAN" src="./Media/Discriminant_DC.PNG" >
-</p>
-<p align="center">
-  <img alt="Training DCGAN" title="Training DCGAN" src="./Media/DCtraining.PNG" >
+  <img alt="Outlier" title="Outlier" src="./media/outlier.png" >
 </p>
 
-The generator input is an nz-sized vector (noise) that will be deconvoluted into an image.
-The discriminant's input is an image and the output is a number $\in$ [0;1]. 1 means that the image is considered as being real and 0 means that it is considered as being fake.
-
-### Classic Training
-
-The first training used is a classic DC GAN training, defined in <a href="./Trainings/training_classic.py">training_classic.py</a>. The discriminant D is fed with real (x) and fake (G(z)) images of the generator G at each iteration and the loss is calculated with a Binary Cross Entropy loss function :
-
-$$ D_{Loss}(x,z)= -(log(D(x)) + log(1-D(G(z))))$$
-
-$$ G_{Loss}(z)= -(log(D(G(z))))$$
-
-Then discriminant and generator are optimized to minimize these losses.
-An Adam optimizer (lr=0.00015, beta1=0.5, beta2=0.999) has been used for both networks.
-
-### Monitored Training
-The second training used is a classic DC GAN training with a monitoring of the loss values that influences the training, defined in <a href="./Trainings/training_monitoring.py">training_monitoring.py</a>. The discriminant and generator loss are defined as for a classic training. A threshold is defined such as at each iteration the discriminant is optimized only if :
-
-$$D_{Loss}>0.8*G_{Loss}$$
-
-This is done to prevent the discriminant to become too powerful compared to the generator.
-An Adam optimizer (lr=0.00015, beta1=0.5, beta2=0.999) has been used for both networks.
-
-### Boost and Noisy Training
-The third training used is a DC GAN training defined in <a href="./Trainings/training_boosting.py">training_boosting.py</a>. At each iteration, a random number k (uniform distribution) is computed and this number defines what will be trained during this iteration and how.
-
-* if $0.0001 \lt k \lt 0.001$ for the next 100 iterations(including this one) ONLY the discriminant will be trained with real images labeled as real and fake images labeled as fake. This results in a boost in the training of the discriminant.
-* if $0.001 \lt k \lt 0.93$ this iteration the discriminant will be trained with real images labeled as real and fake images labeled as fake.
-* if $0.93 \le k \le 1$ this iteration the discriminant will be trained with real images labeled as fake and fake images labeled as real (Noisy Label) in order to add noise in the training for a more robust discriminant.
-* if $0 \le k \lt 0.0001$ for the next 100 iteration(including this one) ONLY the generator will be trained. This results in a boost in the training of the generator.
-* if $0.001 \lt k \le 1$ for this iteration the generator will be trained.
-
-An Adam optimizer (lr=0.00015, beta1=0.5, beta2=0.999) has been used for both networks.
-
-## W-GAN
-### W-GAN Architecture
-
-A Wasserstein GAN (W-GAN) is developed for (64px and 256px) using <a href="./Models/gan_64.py">gan_64.py</a> and <a href="./Models/gan_256.py">gan_256.py</a> with the mode "wgan".
-The architecture of the GAN is given by the following figures :
-
+After investigation, I figured out that this raise on week 44 was due to one single business unit (id=30). In my opinion this data might probably be an error, thus I replaced this value by the average value of the turnover of department 88 for business unit id=30 during week 44 in 2014,2015 and 2016.
+This is the result of the modification :
 <p align="center">
-  <img alt="Generator W-GAN" title="Generator W-GAN" src="./Media/Generator.PNG" >
-</p>
-<p align="center">
-  <img alt="Discriminant W-GAN" title="Discriminant W-GAN" src="./Media/Discriminant_WGAN.PNG" >
-</p>
-<p align="center">
-  <img alt="W-GAN training" title="W-GAN training" src="./Media/WGANtraining.PNG" >
+  <img alt="Outlier removed" title="Outlier removed" src="./media/2013_per_dep.png" >
 </p>
 
-The generator input is a nz-sized vector (noise) that will be deconvoluted into an image.
-The discriminant's input is an image and the output is a number $\in \mathbb{R}$. This number is a score that assesses the realness of the image.
+### Highest turnover in 2016
 
-### W-GAN Training
-
-The training is a Wasserstein GAN training defined in <a href="./Trainings/training_wgan.py">training_wgan.py</a>.
-The discriminant D is fed with real (x) and fake (G(z)) images of the generator G at each iteration and the loss is calculated with a Binary Cross Entropy loss function :
-
-$$ Distance_{D} = D_{Loss}(x,z) = (\sum_{i=1}^{batch size} D(x_{i}) - \sum_{j=1}^{batch size} D(G(z_{j})))$$
-
-$$ Distance_{G} = G_{Loss}(z)= -(\sum_{i=1}^{batch size} D(G(z_{i})))$$
-
-The goal of the discriminant is to maximize the distance $Distance_{D}$ between the distributions of the score given for real images and the distribution of the score given for fake images. In this project, we choose to minimize $-Distance_{D}$. The more the distribution will be separated the more the decision to assess if the image is real or fake is accurate.
-The goal of the generator is to minimize the distance $Distance_{G}$ between the distributions of the score given for real images and the distribution of the score given for fake images. The generator tries to fool the discriminant with generated images that should be classified as real, it is reducing the distance between the distributions.
-During this training, we apply weights clipping on the discriminant's weights and the discriminant is trained 3 times more than the generator.
-
-An RMSProp optimizer (lr=5e-5) has been used for both networks for stability reasons.
-
-For more informations on WGAN training check <a href="https://machinelearningmastery.com/how-to-implement-wasserstein-loss-for-generative-adversarial-networks/">this website</a>.
-
-## Results
-
-Here are some results of the networks :
-
-### DC-GAN classic
+To know what department made the highest turnover in 2016, I chose to plot the annual turnover for each departement for each year(as this is also interesting to analyze the evolution of the annual turnover per department and per year).
 
 <p align="center">
-  <img alt="Classic DCGAN gif" title="Classic DCGAN gif" src="./Media/animpokemon64_dcgan_classic_150.gif" width="450">
+  <img alt="Annual turnover evolution per department and per year" title="Annual turnover evolution per department and per year" src="./media/turnover_per_dep_per_year.png" >
+</p>
+
+The department that made the highest turnover in 2016 is the department 127 with a turnover of 3.3295e+07.
+
+This figure also shows that the annual turnover is not constant, it can even double within a year (as in 2016) for department 73 and 127.
+
+### Top 5 weeks for department 88 in 2015
+
+I decided to plot the evolution of the turnover on a year per department for every year between 2013 and 2016.
+
+<p align="center">
+  <img alt="Annual evolution of turnover per department in 2013" title="Annual evolution of turnover per department in 2013" src="./media/2013_per_dep.png" >
 </p>
 
 <p align="center">
-  <img alt="Classic DCGAN last" title="Classic DCGAN last" src="./Media/pokemon64_dcgan_classic_150.png" width="450">
-</p>
-
-### DC-GAN monitoring
-
-<p align="center">
-  <img alt="Monitoring DCGAN gif" title="Monitoring DCGAN gif" src="./Media/animpokemon64_dcgan_monitoring_150.gif" width="450">
+  <img alt="Annual evolution of turnover per department in 2014" title="Annual evolution of turnover per department in 2014" src="./media/2014_per_dep.png" >
 </p>
 
 <p align="center">
-  <img alt="Monitoring DCGAN last" title="Monitoring DCGAN last" src="./Media/pokemon64_dcgan_monitoring_150.png" width="450">
-</p>
-
-### DC-GAN boosting and noisy label
-
-<p align="center">
-  <img alt="Boost DCGAN gif" title="Boost DCGAN gif" src="./Media/animpokemon64_dcgan_boosting_150.gif" width="450">
+  <img alt="Annual evolution of turnover per department in 2015" title="Annual evolution of turnover per department in 2015" src="./media/2015_per_dep.png" >
 </p>
 
 <p align="center">
-  <img alt="Boost DCGAN last" title="Boost DCGAN last" src="./Media/pokemon64_dcgan_boosting_150.png" width="450">
+  <img alt="Annual evolution of turnover per department in 2016" title="Annual evolution of turnover per department in 2016" src="./media/2016_per_dep.png" >
 </p>
 
-### W-GAN
+This shows us that in 2015 the top five weeks of department 88 are from top to bottom : 27,37,36,38,28.
+
+These figures show that it seems that there is an important seasonality in the evolution of the turnover in function of the time.
+
+### Top performers stores of 2014
+
+The top performers stores of 2014 are from top to bottom : 121,17,118,189,100.
+
+<div align="center">
+
+| Business Unit ID     | Location |
+|:-------------:|:-------------:|
+|121 | Close to Lyon|
+|17|Montpellier|
+|118|Villeneuve-d'Ascq|
+|189|Paris 1|
+|100|Close to Nantes|
+
+</div>
+
+It makes sense that these stores are the top performers in 2014 as they are located near or in big cities.
+
+### What kind of sport is department 73
+
+According to the plots of the annual evolution of turnover of department 73 for each years, it seems that department 73 might be an outdoor sport that is performed during summer, maybe something related to beach/water or good weather, as we can see during fall and winter the sales are dropping and in spring and summer the sales are going up.
+
+### What kind of sport is department 117
+
+According to the plots of the annual evolution of turnover of department 117 for each years, it seems that department 117 might be an sport that is performed during winter, maybe something related to skiing/snow, as we can see during fall and winter the sales are increasing and in spring and summer the sales are close to 0.
+
+### A representation of business unit features
+
+I decided to investigate what could represent the category but_region_idr_region and zod_idr_zone_dgr given for a business unit.
+Thus I created these figures representing the geographical position of the store and their region category (color).
+<p align="center">
+  <img alt="Business unit region category" title="Business unit region category" src="./media/bu_feat.png" >
+</p>
+
+Looking at these figures I understand that the category correspond to a geographical position but also to something else (as some stores belongs to the same category and are far from each others).
+
+###  An overall vue on data
+
+After this data analysis I realized that to predict the turnover for the next 8 weeks it might be important to consider:
+  * the department (as some department refers to winter/summer sports, each department has a different average behaviour on a year)
+  * the location of the store using latitude, longitude, zod_idr_zone_dgr, but_region_idr_region as some stores might sells more than others in general (if they are close to big cities) and also some stores might sells than others more depending on the season(if they are close to the mountain and if it is winter season).
+  * the period of the year as data seems to have a seasonal behaviour.
+  * the actual trend of the last weeks (last 16 weeks for example) as the evolution of the turnover on a year still differs a bit of the average annual turnover.
+
+## Modeling
+
+### Firsts models
+
+At the begining I tried different models based on this architecture idea :
+<p align="center">
+  <img alt="Old Model" title="Old Model" src="./media/old_model.png" >
+</p>
+The input consist of a differentiated timeserie of the last 16 weeks.
+The main idea was to encode with a full connected layer the period of the year, the department and location of the store in an encoded feature vector.
+Once each of this feature vector was encoded each element of the input was concatenated with this feature vector. The resulting sequence was fed to a LSTM followed by a full connected layer. The output was a sequence of predicted turnover.
+
+This methods turned out to predict pretty poorly, I tried many ways to encode the feature vector, and I even deleted the feature vector to make prediction only based on the differentiated time series. The results were not that bad but not very interesting to make a real decision.
+
+### Final Model Architecture
+
+I figured out that my encoder was probably too weak to learn from the data and that I needed to switch strategy. Thus I firstly decided to split the predictors between each department, so each department will have its own predictor.
+Then to continue with the idea that the period of the year was an important aspect, I decided to compute a timeserie of the average annual turnover over a year that will be used as a base by my neural network.
+Finally I decided to use 4 k-nearest neighbors models (one per department) to predict the timeserie of the average annual turnover for a given department and a given position vector (latitude, longitude, region category).
+This resulted in the following architecture :
+<p align="center">
+  <img alt="Model" title="Model" src="./media/model.png" >
+</p>
+<p align="center">
+  <img alt="LSTM Module" title="LSTM Module" src="./media/lstm.png" >
+</p>
+As an example : we want to predict turnovers from week 17 to week 24 with X the turnovers from week 1 to 16 for a given store S and a given department D.
+At first a position vector of the store S (latitude, longitude, region category) feeds a k-nearest neighbor model that is trained with data (based on years 2013,2014,2015,2016) related to department D. This k-nearest neighbor model outputs a 128-sized timeserie annual_s that represents the average turnover evolution over a year for this business unit and department.
+This annual_s is sliced to take the data corresponding from weeks 1 to 24, this slice is interpolated and scaled to X.
+X and the scaled slice are normalized(min max norm) by the maximum and minimum turnovers ever made in this department and store, this is done to penalize the network when its output is far from the reality relatively to the maximum of money ever made.
+The scaled slice normalized will be called normalized support.
+Normalized X and support are fed to one of the 4 LSTM module (one per department) that will predicts the normalized turnover from week 17 to 24.
+The output of the LSTM will be un-normed by the maximum and minimum turnovers ever made in this department and store to obtain the turnover prediction.
+
+The k-nearest neighbor models is based on a custom weighted distance function that compares distance between features vector :
+
+$$ D(X,Y,w)=(X_{lat,long}-Y_{lat,long})^{2}+w_{0}*(X_{zod\_encoded}-Y_{zod\_encoded})^{2}+w_{1}*(X_{idr\_encoded}-Y_{idr\_encoded})^{2}+w_{3}$$
+
+## Datasets
+To train this model multiple datasets has been computed.
+The datasets are implemented in the <a href="./dataset/dataset.py" target="_blank">dataset.py</a> file.
+
+2 Annual_construction_dataset (training and validation) have been created to train and evaluate the k-nn models (and to tune their hyperparameters). These datasets are saved in <a href="data_annual_train.json" target="_blank">data_annual_train.json</a> and in <a href="data_annual_val.json" target="_blank">data_annual_val.json</a>.
+
+2 Turnover_dataset (training and validation) have been created to train evaluate the LSTM modules. These datasets are saved in <a href="train_data.json" target="_blank">train_data.json</a> and in <a href="val_data.json" target="_blank">val_data.json</a>.
+
+To split between training and validation for both dataset I decided to split the data with a date : January 2 2016.
+The dataset has been computed using <a href="dataset_building.ipynb" target="_blank">dataset_building.ipynb</a>
+
+## Training
+
+### KNN
+I firstly trained the k-nearest neighbor, the goal was to choose for each department hyperparameters to obtain the best validation loss. For the loss function I chose cosine loss as our objective is to predict a timeserie support that match with our data X. The hyperparameters here were the number of neighbors to use and the vector w to use in the distance calculation. As this is a really slow process I did not have the time to evaluate on a large set of hyperparameters, yet I obtained pretty good results with this training. The hyperparameters can be found in <a href="./dataset/predset.py" target="_blank">PredSet class definition</a> as knn_params attribute.
+This training has been done using <a href="annual_curve_model_training.ipynb" target="_blank">annual_curve_model_training.ipynb</a>
+
+### LSTM module
+Then I trained the LSTM module. The chosen model is a <a href="./model/lstm.py" target="_blank">LSTM_Turnover</a> model with a hidden state size of 64 and 4 layers(~100k parameters).
+
+I trained it with different process : the loss function used for training is a L1 lossfunction that compares the prediction with the ground truth. In order to force the network to output correct values even before that it is usefull (for week 15 as an example) it is possible to consider a "warmup" parameter. More over the training can either train the network to predict the value for week W and compares it to ground truth or train in to predict the sequence from week W to week W+7, this parameter is called future_pred in our training. This means that if the aim is to predict turnovers Y from week W to week W+7 with X which are turnovers value from week W-16 to W-1, the loss function used to compare prediction Y and ground truth Yt can be considered as:
+
+$$Loss(Y,Yt)=L1Loss(Prediction_{week(W-warmup)\_to\_week(W+future\_pred-1)},Yt_{week(W-warmup)\_to\_week(W+future\_pred-1)})$$
+
+The training is done using the training function described in <a href="./training/training.py" target="_blank">training.py</a>.
+I trained each network for each derpartment with warmup = 0 or 8 and future_pred = 1 or 8. 
+I used an adam Optimizer with learning rate set to 3e-4 and a learning rate scheduler that multiplies learning rate by 0.1 every 5 epochs. I trained for 15 epochs.
+
+<a href="model_training.ipynb" target="_blank">model_training.ipynb</a>
+
+For each network I computed the distribution of the loss for each element of the training/validation set. The results can be found in /media/eval folder each image name correspond to "(department)\_(warmup)\_(future_pred).png"
+Here are some of them :
 
 <p align="center">
-  <img alt="WGAN gif" title="WGAN gif" src="./Media/animpokemon64_wgan_150.gif" width="450">
+  <img alt="Business unit region category" title="Business unit region category" src="./media/eval/73_0_8.png" >
 </p>
-
 <p align="center">
-  <img alt="WGAN last" title="WGAN last" src="./Media/pokemon64_wgan_150.png" width="450">
+  <img alt="Business unit region category" title="Business unit region category" src="./media/eval/88_8_8.png" >
 </p>
+<p align="center">
+  <img alt="Business unit region category" title="Business unit region category" src="./media/eval/117_0_8.png" >
+</p>
+<p align="center">
+  <img alt="Business unit region category" title="Business unit region category" src="./media/eval/127_0_8.png" >
+</p>
+Based on these results I selected the weights for each department network.
+As we can see the "worst" average error is for department 88 and is about 0.1 (normalized by maximum and minimum turnover ever made by the department of a given store) which is quite correct.
 
-## Conclusion
+## Pipeline
+Once the model trained, I implemented the pipeline which reads data from csv files, preprocess the data, loads the models, predicts the turnovers for the next 8 weeks and writes the prediction to a csv file.
+The pipeline is implemented in <a href="./dataset/predset.py" target="_blank">predset.py</a>,<a href="./dataset/testdataset.py" target="_blank">testdataset.py</a>,<a href="./model/modelset.py" target="_blank">modelset.py</a>.
 
-Once trained, the 64px networks produce images with sharp edges like small terrifying monsters.
+Commons issues involved in the deployment of machine learning model can be memory/hardware required or time needed to do a prediction, but here our pipeline produces results in 1 minute which is quite correct.
+One other issue is that the kind of model that I implemented is based on training and does not adapt over the time, as it is based on data between 2013 and 2017, it might have difficulties to predict on data provided in 10 years as tendances might have changed. Also this models is defined for department 73,88,117 and 127 and might have difficulties to predict for other department. However I believe that the k-nn models with an input based on store location might help to predict for same department on a new store.
 
-Moreover the Mini Bacth Discrimination layer seems to perform well : even images that looks close have some variations (same type of pokemon but still a bit different). Even with a small latent space the networks always produce different outputs.
+To monitor the perfomance of the model overtime it could be possible to compute the loss of the prediction overtime (every week compute the loss for prediction made 8 weeks before with the ground truth of the last 8 weeks).
 
-An improvement of these 64px networks is planned for the future.
+## Using the pipeline
 
-For now, I have trained the 256px networks and obtained good results (images with sharp edges). Yet I believe that I need to tune the hyperparameters to get better results. These networks takes a lot of time to train so I will update this project as soon as I will have the time to compute good results !
+We would like to predict the turnovers of weeks W to W+7 
+To use the pipeline you will need :
+
+- A csv file named past_data.csv containing columns : ["day_id"],["but_num_business_unit"],["dpt_num_department"],["turnover"]. This datafile must contains at least 16 weeks of data before the week W of prediction (from W-16weeks to W-1weeks) for all business unit and department id in pred_df.csv.
+- A csv file named pred_data.csv containing columns : ["day_id"],["but_num_business_unit"],["dpt_num_department"]. This datafile must must contains 7 weeks of data after the week W of prediction (from W to W+7weeks) for all business unit and department id for which the prediction will be done.
+- A csv file named bu_feat.csv containing columns : ["but_num_business_unit"],["but_latitude"],["but_longitude"],["but_region_idr_region"],["zod_idr_zone_dgr"], it must contains data for all business unit and department id in pred_df.
+- The json file data_knn.json that contains data for our knn-models.
+
+1. Put your 4 files in the folder data.
+2. Run "python makeprediction.py --dataroot --device --bu --dep --plot"
+- dataroot is the root to your data folder (default "./data")
+- device : 0 for cpu | 1 for gpu (default 0)
+- bu : business unit number for which you will plot the prediction (default 95)
+- dep : department number for which you will plot the prediction (default 73)
+- plot : plot the prediction for a given bu and dep (yes = 1 | no = 0) (default 0)
+3. Visualize you plot if you asked to
+4. The predictions for all your departments & business unit is in data/results.csv on the same format as past_data.csv.
+
+## Improve the model
+
+Firstly given the short time that I had I was not able to tune the hyperparameters of my model a lot, and I believe that the performance could be improved by tuning it. Also one interesting thing could be to try to use more evolved timeserie analysis models as transformers which performs really well on NLP.

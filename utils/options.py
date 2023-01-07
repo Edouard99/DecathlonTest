@@ -9,7 +9,7 @@ class BaseOptions():
         self.initialized = False
 
     def initialize(self):
-        self.parser.add_argument('--dataroot', type=str, default="./test_data_scientist/",
+        self.parser.add_argument('--dataroot', type=str, default="./data/",
                                  help='path to folder (should contains past_data.csv, prediction_data.csv, bu_feat.csv, data_knn.json)')
         self.parser.add_argument('--device', type=int, default=0,
                                  help='choose between cpu=0(default) and gpu=1')
