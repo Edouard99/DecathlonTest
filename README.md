@@ -147,7 +147,7 @@ After this data analysis I realized that to predict the turnover for the next 8 
 
 At the begining I tried different models based on this architecture idea :
 <p align="center">
-  <img alt="Old Model" title="Old Model" src="./media/old_model.png" >
+  <img alt="Old Model" title="Old Model" src="./media/old_model.PNG" >
 </p>
 The input consist of a differentiated timeserie of the last 16 weeks.
 The main idea was to encode with a full connected layer the period of the year, the department and location of the store in an encoded feature vector.
@@ -162,10 +162,10 @@ Then to continue with the idea that the period of the year was an important aspe
 Finally I decided to use 4 k-nearest neighbors models (one per department) to predict the timeserie of the average annual turnover for a given department and a given position vector (latitude, longitude, region category).
 This resulted in the following architecture :
 <p align="center">
-  <img alt="Model" title="Model" src="./media/model.png" >
+  <img alt="Model" title="Model" src="./media/model.PNG" >
 </p>
 <p align="center">
-  <img alt="LSTM Module" title="LSTM Module" src="./media/lstm.png" >
+  <img alt="LSTM Module" title="LSTM Module" src="./media/lstm.PNG" >
 </p>
 As an example : we want to predict turnovers from week 17 to week 24 with X the turnovers from week 1 to 16 for a given store S and a given department D.
 At first a position vector of the store S (latitude, longitude, region category) feeds a k-nearest neighbor model that is trained with data (based on years 2013,2014,2015,2016) related to department D. This k-nearest neighbor model outputs a 128-sized timeserie annual_s that represents the average turnover evolution over a year for this business unit and department.
@@ -177,7 +177,7 @@ The output of the LSTM will be un-normed by the maximum and minimum turnovers ev
 
 The k-nearest neighbor models is based on a custom weighted distance function that compares distance between features vector :
 
-$$ D(X,Y,w)=(X_{lat,long}-Y_{lat,long})^{2}+w_{0}*(X_{zod\_encoded}-Y_{zod\_encoded})^{2}+w_{1}*(X_{idr\_encoded}-Y_{idr\_encoded})^{2}+w_{3}$$
+$$ D(X,Y,w)=(X_{lat,long}-Y_{lat,long})^{2}+w_{0}*(X_{zodencoded}-Y_{zodencoded})^{2}+w_{1}*(X_{idrencoded}-Y_{idrencoded})^{2}+w_{3}$$
 
 ## Datasets
 To train this model multiple datasets has been computed.
@@ -201,7 +201,7 @@ Then I trained the LSTM module. The chosen model is a <a href="./model/lstm.py" 
 
 I trained it with different process : the loss function used for training is a L1 lossfunction that compares the prediction with the ground truth. In order to force the network to output correct values even before that it is usefull (for week 15 as an example) it is possible to consider a "warmup" parameter. More over the training can either train the network to predict the value for week W and compares it to ground truth or train in to predict the sequence from week W to week W+7, this parameter is called future_pred in our training. This means that if the aim is to predict turnovers Y from week W to week W+7 with X which are turnovers value from week W-16 to W-1, the loss function used to compare prediction Y and ground truth Yt can be considered as:
 
-$$Loss(Y,Yt)=L1Loss(Prediction_{week(W-warmup)\_to\_week(W+future\_pred-1)},Yt_{week(W-warmup)\_to\_week(W+future\_pred-1)})$$
+$$Loss(Y,Yt)=L1Loss(Prediction_{week(W-warmup) to week(W+futurepred-1)},Yt_{week(W-warmup) to week(W+futurepred-1)})$$
 
 The training is done using the training function described in <a href="./training/training.py" target="_blank">training.py</a>.
 I trained each network for each derpartment with warmup = 0 or 8 and future_pred = 1 or 8. 
