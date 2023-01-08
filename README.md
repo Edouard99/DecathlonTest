@@ -9,7 +9,7 @@
   * [e. What kind of sport is department 73](#what-kind-of-sport-is-department-73)
   * [f. What kind of sport is department 117](#what-kind-of-sport-is-department-117)
   * [g. A representation of business unit features](#a-representation-of-business-unit-features)
-  * [h. An overall vue on data](#an-overall-vue-on-data)
+  * [h. An overall look on data](#an-overall-look-on-data)
 * [2. Modeling](#modeling)
   * [a. Firsts models](#firsts-models)
   * [b. Final model](#final-model)
@@ -133,11 +133,11 @@ Thus I created these figures representing the geographical position of the store
 
 Looking at these figures I understand that the category correspond to a geographical position but also to something else (as some stores belongs to the same category and are far from each others).
 
-###  An overall vue on data
+###  An overall look on data
 
 After this data analysis I realized that to predict the turnover for the next 8 weeks it might be important to consider:
   * the department (as some department refers to winter/summer sports, each department has a different average behaviour on a year)
-  * the location of the store using latitude, longitude, zod_idr_zone_dgr, but_region_idr_region as some stores might sells more than others in general (if they are close to big cities) and also some stores might sells than others more depending on the season(if they are close to the mountain and if it is winter season).
+  * the location of the store using latitude, longitude, zod_idr_zone_dgr, but_region_idr_region as some stores might sells more than others in general (if they are close to big cities) and also some stores might sells more than others depending on the season(if they are close to the mountain and if it is winter season for example).
   * the period of the year as data seems to have a seasonal behaviour.
   * the actual trend of the last weeks (last 16 weeks for example) as the evolution of the turnover on a year still differs a bit of the average annual turnover.
 
@@ -185,26 +185,27 @@ The datasets are implemented in the <a href="./dataset/dataset.py" target="_blan
 
 2 Annual_construction_dataset (training and validation) have been created to train and evaluate the k-nn models (and to tune their hyperparameters). These datasets are saved in <a href="data_annual_train.json" target="_blank">data_annual_train.json</a> and in <a href="data_annual_val.json" target="_blank">data_annual_val.json</a>.
 
-2 Turnover_dataset (training and validation) have been created to train evaluate the LSTM modules. These datasets are saved in <a href="train_data.json" target="_blank">train_data.json</a> and in <a href="val_data.json" target="_blank">val_data.json</a>.
+2 Turnover_dataset (training and validation) have been created to train and evaluate the LSTM modules. These datasets are saved in <a href="train_data.json" target="_blank">train_data.json</a> and in <a href="val_data.json" target="_blank">val_data.json</a>.
 
 To split between training and validation for both dataset I decided to split the data with a date : January 2 2016.
-The dataset has been computed using <a href="dataset_building.ipynb" target="_blank">dataset_building.ipynb</a>
+The dataset has been computed using <a href="dataset_building.ipynb" target="_blank">dataset_building.ipynb</a>. (Datasets are too heavy to be uploaded to github but you can compute them yourself with this file in an hour)
 
 ## Training
 
 ### KNN
-I firstly trained the k-nearest neighbor, the goal was to choose for each department hyperparameters to obtain the best validation loss. For the loss function I chose cosine loss as our objective is to predict a timeserie support that match with our data X. The hyperparameters here were the number of neighbors to use and the vector w to use in the distance calculation. As this is a really slow process I did not have the time to evaluate on a large set of hyperparameters, yet I obtained pretty good results with this training. The hyperparameters can be found in <a href="./dataset/predset.py" target="_blank">PredSet class definition</a> as knn_params attribute.
+I firstly trained the k-nearest neighbors, the goal was to choose for each department the hyperparameters to obtain the best validation loss. For the loss function I chose cosine loss as our objective is to predict a timeserie support that match with our data X. The hyperparameters here were the number of neighbors to use and the vector w to use in the distance calculation. As this is a really slow process I did not have the time to evaluate on a large set of hyperparameters, yet I obtained pretty good results with this training. The hyperparameters can be found in <a href="./dataset/predset.py" target="_blank">PredSet class definition</a> as knn_params attribute.
 This training has been done using <a href="annual_curve_model_training.ipynb" target="_blank">annual_curve_model_training.ipynb</a>
 
 ### LSTM module
 Then I trained the LSTM module. The chosen model is a <a href="./model/lstm.py" target="_blank">LSTM_Turnover</a> model with a hidden state size of 64 and 4 layers(~100k parameters).
 
-I trained it with different process : the loss function used for training is a L1 lossfunction that compares the prediction with the ground truth. In order to force the network to output correct values even before that it is usefull (for week 15 as an example) it is possible to consider a "warmup" parameter. More over the training can either train the network to predict the value for week W and compares it to ground truth or train in to predict the sequence from week W to week W+7, this parameter is called future_pred in our training. This means that if the aim is to predict turnovers Y from week W to week W+7 with X which are turnovers value from week W-16 to W-1, the loss function used to compare prediction Y and ground truth Yt can be considered as:
+I trained it with different process : the loss function used for training is a L1 lossfunction that compares the prediction with the ground truth. In order to force the network to output correct values even before that it is usefull (for week 15 as an example) it is possible to consider a "warmup" parameter. More over the training can either train the network to predict the value for week W and compares it to ground truth or train in to predict the sequence from week W to week W+future_pred, this parameter is called future_pred (integer between 1 and 8) in our training. This means that if the aim is to predict turnovers Y from week W to week W+7 with X which are turnovers value from week W-16 to W-1, the loss function used to compare prediction Y and ground truth Yt can be considered as:
 
 $$Loss(Y,Yt)=L1Loss(Prediction_{week(W-warmup) to week(W+futurepred-1)},Yt_{week(W-warmup) to week(W+futurepred-1)})$$
 
 The training is done using the training function described in <a href="./training/training.py" target="_blank">training.py</a>.
-I trained each network for each derpartment with warmup = 0 or 8 and future_pred = 1 or 8. 
+I trained each network for each derpartment with warmup = 0 or 8 and future_pred = 1 or 8.
+I initialized my LSTM module with xavier uniform initialization.
 I used an adam Optimizer with learning rate set to 3e-4 and a learning rate scheduler that multiplies learning rate by 0.1 every 5 epochs. I trained for 15 epochs.
 
 <a href="model_training.ipynb" target="_blank">model_training.ipynb</a>
