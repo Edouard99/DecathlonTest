@@ -7,11 +7,14 @@ test.ipynb
 *.txt
 *.tar
 *.pdf
-*.csv
 .vscode
-*.json
 model_build.ipynb
 data_visu.ipynb
 *.pth
 *.pptx
 model_eval
+data_annual_train.json
+data_annual_val.json
+train_data.json
+val_data.json
+data.json
